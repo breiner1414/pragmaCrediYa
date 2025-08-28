@@ -1,8 +1,9 @@
 package co.com.pragma.usecase.user;
 
 import co.com.pragma.model.user.User;
+import co.com.pragma.model.user.gateways.TransactionManager;
 import co.com.pragma.model.user.gateways.UserRepository;
-import co.com.pragma.usecase.user.exception.exceptionEmailAlreadyExists;
+import co.com.pragma.usecase.user.exception.emailAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class UserUseCase implements UserMethodsRepository {
     private final UserRepository userRepository;
+    private final TransactionManager transactionManager;
 
     @Override
     public Mono<User> saveUser(User user) {
@@ -21,13 +23,13 @@ public class UserUseCase implements UserMethodsRepository {
             return Mono.error(new IllegalArgumentException("Dominio : Errores en la validación de datos."));
         }
 
-        return userRepository.findByEmail(user.getEmail())
+        return transactionManager.transactional(userRepository.findByEmail(user.getEmail())
                 .flatMap(existingUser ->
-                        Mono.<User>error(new exceptionEmailAlreadyExists("Ya existe un usuario con ese correo electrónico."))
+                        Mono.<User>error(new emailAlreadyExistsException(user.getEmail()))
                 )
                 .switchIfEmpty(
                         userRepository.saveUser(user)
-                );
+                ));
     }
 
     /**
